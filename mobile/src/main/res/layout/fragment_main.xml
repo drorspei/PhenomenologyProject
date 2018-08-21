@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<RelativeLayout
+        android:orientation="vertical"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" tools:layout_editor_absoluteY="16dp"
+        tools:layout_editor_absoluteX="16dp"
+        xmlns:android="http://schemas.android.com/apk/res/android" xmlns:tools="http://schemas.android.com/tools">
+    <EditText
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:text=""
+            android:id="@+id/phenomenonTitle"
+            android:hint="@string/title"
+    />
+    <EditText android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text=""
+              android:id="@+id/phenomenonButton1"
+              android:hint="@string/button1"
+              android:inputType="text"
+              android:layout_below="@id/phenomenonTitle"
+    />
+
+    <View android:layout_width="1dp" android:layout_height="0dp" android:id="@+id/space1" android:layout_toStartOf="@id/phenomenonConn1"/>
+    <Spinner android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/phenomenonConn1"
+             android:layout_below="@id/phenomenonButton1"/>
+
+    <EditText android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text=""
+              android:id="@+id/phenomenonButton2"
+              android:hint="@string/button2"
+              android:inputType="text"
+              android:layout_below="@id/phenomenonConn1"
+    />
+
+    <View android:layout_width="1dp" android:layout_height="0dp" android:id="@+id/space2" android:layout_toStartOf="@id/phenomenonConn2"/>
+    <Spinner android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/phenomenonConn2"
+             android:layout_below="@id/phenomenonButton2"/>
+
+    <EditText android:layout_width="wrap_content"
+              android:layout_height="wrap_content"
+              android:text=""
+              android:id="@+id/phenomenonButton3"
+              android:hint="@string/button3"
+              android:inputType="text"
+              android:layout_below="@id/phenomenonConn2"
+    />
+
+    <View android:layout_width="1dp" android:layout_height="0dp" android:id="@+id/space3" android:layout_toStartOf="@id/phenomenonConn3"/>
+    <Spinner android:layout_width="wrap_content" android:layout_height="wrap_content" android:id="@+id/phenomenonConn3"
+             android:layout_below="@id/phenomenonButton3"/>
+
+    <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/save"
+            android:layout_below="@id/phenomenonConn3"
+            android:id="@+id/phenomenonSave"
+    />
+
+    <Button android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:text="@string/do_now"
+            android:layout_below="@id/phenomenonSave"
+            android:id="@+id/phenomenonDoNow"
+    />
+</RelativeLayout>
