@@ -12,3 +12,4 @@ public class Phenomenon {
     public int endtime;
     public int howmany;
 }
+

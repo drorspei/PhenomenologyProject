@@ -17,6 +17,7 @@ import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
 import android.support.v4.view.ViewPager;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.Menu;
 import android.view.MenuItem;
@@ -28,9 +29,10 @@ import android.widget.*;
 import java.io.File;
 import java.io.IOException;
 import java.lang.reflect.Array;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
+import java.time.LocalDateTime;
+import java.util.*;
 
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
@@ -108,6 +110,26 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
+    private void savePhenomenon(String title, String button) {
+        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.ENGLISH);
+        String date = df.format(Calendar.getInstance().getTime());
+
+        SavedPhenomenon savedPhenomenon = new SavedPhenomenon();
+        savedPhenomenon.title = title;
+        savedPhenomenon.button = button;
+        savedPhenomenon.date = date;
+
+        ArrayList<SavedPhenomenon> savedPhenomena = FileUtils.loadSavedPhenomena();
+        savedPhenomena.add(savedPhenomenon);
+        try {
+            FileUtils.saveSavedPhenomena(savedPhenomena);
+        } catch (IOException e) {
+            Toast.makeText(this, "Failed to save phenomenon entry",
+                    Toast.LENGTH_LONG).show();
+            e.printStackTrace();
+        }
+    }
+
     @Override
     public void onNewIntent(Intent intent){
         Bundle extras = intent.getExtras();
@@ -116,12 +138,85 @@ public class MainActivity extends AppCompatActivity {
             {
                 String title = extras.getString("title");
                 String button = extras.getString("button");
+                int ind = extras.getInt("notificationIndex");
+
+                savePhenomenon(title, button);
+
+                NotificationManager notificationManager = (NotificationManager) this.
+                        getSystemService(NOTIFICATION_SERVICE);
+
+                if (notificationManager != null) {
+                    notificationManager.cancel(ind);
+                }
+
                 Toast.makeText(this, String.format("Clicked: %s, %s", title, button),
                         Toast.LENGTH_LONG).show();
+
+                List<Phenomenon> phenomena = FileUtils.loadPhenomena();
+                Map<String, Phenomenon> phenomenaByTitle = new HashMap<>();
+                String nextTitle = "";
+
+                for (Phenomenon phenomenon : phenomena) {
+                    phenomenaByTitle.put(phenomenon.title, phenomenon);
+
+                    if (nextTitle.isEmpty() && phenomenon.title.equals(title)) {
+                        if (phenomenon.button1.equals(button)) {
+                            nextTitle = phenomenon.conn1;
+                        } else if (phenomenon.button2.equals(button)) {
+                            nextTitle = phenomenon.conn2;
+                        } else if (phenomenon.button3.equals(button)) {
+                            nextTitle = phenomenon.conn3;
+                        }
+                    }
+                }
+
+                if (!nextTitle.isEmpty()) {
+                    if (phenomenaByTitle.containsKey(nextTitle)) {
+                        showNotification(phenomenaByTitle.get(nextTitle));
+                    }
+                }
             }
         }
 
 
+    }
+
+    public static int runningNotificationIndex = 0;
+
+    public void showNotification(Phenomenon phenomenon) {
+        int ind = runningNotificationIndex++;
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+                .setSmallIcon(android.R.drawable.ic_dialog_info)
+                .setContentTitle(phenomenon.title)
+                .setContentText(phenomenon.title)
+                .setAutoCancel(true);
+
+        int requestCode = 0;
+        for (String button : new String[] {phenomenon.button1, phenomenon.button2, phenomenon.button3}) {
+            if (!button.isEmpty()) {
+                Intent intent = new Intent(this, MainActivity.class);
+                intent.putExtra("title", phenomenon.title);
+                intent.putExtra("button", button);
+                intent.putExtra("notificationIndex", ind);
+                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+
+                PendingIntent pendingIntent = PendingIntent.getActivity(this, requestCode++,
+                        intent, PendingIntent.FLAG_UPDATE_CURRENT);
+                NotificationCompat.Action action = new NotificationCompat.Action
+                        .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
+
+                builder.addAction(action);
+            }
+        }
+
+        Notification notification = builder.build();
+        notification.flags |= Notification.FLAG_AUTO_CANCEL;
+
+        NotificationManager notificationManager = (NotificationManager)this.getSystemService(NOTIFICATION_SERVICE);
+        if (notificationManager != null) {
+            notificationManager.notify(ind, notification);
+        }
     }
 
     /**
@@ -183,7 +278,9 @@ public class MainActivity extends AppCompatActivity {
                 phenomenonTitle.setText(phenomenon.title);
 
                 if (titles != null) {
-                    titles.remove(phenomenonIndex + 1);
+                    if (phenomenonIndex + 1 < titles.size()) {
+                        titles.remove(phenomenonIndex + 1);
+                    }
                 }
 
                 EditText phenomenonButton1 = rootView.findViewById(R.id.phenomenonButton1);
@@ -204,31 +301,10 @@ public class MainActivity extends AppCompatActivity {
                 doNowBtn.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-                        NotificationCompat.Builder builder = new NotificationCompat.Builder(getContext())
-                                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                                .setContentTitle(phenomenon.title)
-                                .setContentText(phenomenon.title)
-                                .setAutoCancel(true);
-
-                        for (String button : new String[] {phenomenon.button1, phenomenon.button2, phenomenon.button3}) {
-                            if (!button.isEmpty()) {
-                                Intent intent = new Intent(getContext(), MainActivity.class);
-                                intent.putExtra("title", phenomenon.title);
-                                intent.putExtra("button", button);
-
-                                PendingIntent pendingIntent = PendingIntent.getActivity(getContext(), 1,
-                                        intent, PendingIntent.FLAG_ONE_SHOT);
-                                NotificationCompat.Action action = new NotificationCompat.Action
-                                        .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
-                                builder.addAction(action);
-                            }
+                        MainActivity mainActivity = (MainActivity) getContext();
+                        if (mainActivity != null) {
+                            mainActivity.showNotification(phenomenon);
                         }
-
-                        Notification notification = builder.build();
-
-                        NotificationManager notificationManager = (NotificationManager) getContext()
-                                .getSystemService(NOTIFICATION_SERVICE);
-                        notificationManager.notify(0, notification);
                     }
                 });
             }
@@ -260,31 +336,43 @@ public class MainActivity extends AppCompatActivity {
                     }
 
                     Phenomenon phenomenon = phenomena.get(phenomenonIndex);
+                    boolean isEmpty = true;
 
                     EditText phenomenonTitle = rootView.findViewById(R.id.phenomenonTitle);
                     phenomenon.title = phenomenonTitle.getText().toString();
+                    isEmpty &= phenomenon.title.isEmpty();
 
                     EditText phenomenonButton1 = rootView.findViewById(R.id.phenomenonButton1);
                     phenomenon.button1 = phenomenonButton1.getText().toString();
+                    isEmpty &= phenomenon.button1.isEmpty();
 
                     EditText phenomenonButton2 = rootView.findViewById(R.id.phenomenonButton2);
                     phenomenon.button2= phenomenonButton2.getText().toString();
+                    isEmpty &= phenomenon.button2.isEmpty();
 
                     EditText phenomenonButton3 = rootView.findViewById(R.id.phenomenonButton3);
                     phenomenon.button3 = phenomenonButton3.getText().toString();
+                    isEmpty &= phenomenon.button3.isEmpty();
 
                     Spinner phenomenonConn1 = rootView.findViewById(R.id.phenomenonConn1);
                     phenomenon.conn1 = phenomenonConn1.getSelectedItem().toString();
+                    isEmpty &= phenomenon.conn1.isEmpty();
 
                     Spinner phenomenonConn2 = rootView.findViewById(R.id.phenomenonConn2);
                     phenomenon.conn2 = phenomenonConn2.getSelectedItem().toString();
+                    isEmpty &= phenomenon.conn2.isEmpty();
 
                     Spinner phenomenonConn3 = rootView.findViewById(R.id.phenomenonConn3);
                     phenomenon.conn3 = phenomenonConn3.getSelectedItem().toString();
+                    isEmpty &= phenomenon.conn3.isEmpty();
 
                     phenomenon.starttime = 0;
                     phenomenon.endtime = 1;
                     phenomenon.howmany = 1;
+
+                    if (isEmpty) {
+                        phenomena.remove(phenomenonIndex);
+                    }
 
                     try{
                         FileUtils.savePhenomena(phenomena);
