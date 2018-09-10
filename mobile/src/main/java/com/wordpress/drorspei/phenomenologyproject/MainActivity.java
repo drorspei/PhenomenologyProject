@@ -1,11 +1,6 @@
 package com.wordpress.drorspei.phenomenologyproject;
 
 import android.Manifest;
-import android.app.AlarmManager;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
-import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -14,18 +9,16 @@ import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.support.v4.app.FragmentManager;
 import android.support.v4.app.FragmentPagerAdapter;
-import android.support.v4.app.NotificationCompat;
 import android.support.v4.view.ViewPager;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
+import android.util.Log;
 import android.view.*;
 import android.widget.*;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
 import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class MainActivity extends AppCompatActivity {
@@ -56,15 +49,25 @@ public class MainActivity extends AppCompatActivity {
         mViewPager.setAdapter(mSectionsPagerAdapter);
 
         if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
-            requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 123);
+            requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
+        } else {
+            Log.d("MainActivity", "WRITE_EXTERNAL_STORAGE ok");
         }
 
+        if (checkSelfPermission(Manifest.permission.RECEIVE_BOOT_COMPLETED) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[] {Manifest.permission.RECEIVE_BOOT_COMPLETED}, 1);
+        } else {
+            Log.d("MainActivity", "RECEIVE_BOOT_COMPLETED ok");
+        }
+
+        new PhenomenonNotificationManager(this).setRandomTimeAll();
     }
 
     @Override
     public void onStart() {
         super.onStart();
         EventBus.getDefault().register(this);
+        startService(new Intent(this, NotificationService.class));
     }
 
     @Override
@@ -96,158 +99,6 @@ public class MainActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void savePhenomenon(String title, String button) {
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.ENGLISH);
-        String date = df.format(Calendar.getInstance().getTime());
-
-        SavedPhenomenon savedPhenomenon = new SavedPhenomenon();
-        savedPhenomenon.title = title;
-        savedPhenomenon.button = button;
-        savedPhenomenon.date = date;
-
-        ArrayList<SavedPhenomenon> savedPhenomena = FileUtils.loadSavedPhenomena();
-        savedPhenomena.add(savedPhenomenon);
-        try {
-            FileUtils.saveSavedPhenomena(savedPhenomena);
-        } catch (IOException e) {
-            Toast.makeText(this, "Failed to save phenomenon entry",
-                    Toast.LENGTH_LONG).show();
-            e.printStackTrace();
-        }
-    }
-
-    @Override
-    public void onNewIntent(Intent intent){
-        Bundle extras = intent.getExtras();
-        if (extras != null){
-            if (extras.containsKey("title") && extras.containsKey("button"))
-            {
-                String title = extras.getString("title");
-                String button = extras.getString("button");
-                int ind = extras.getInt("notificationIndex");
-
-                savePhenomenon(title, button);
-
-                NotificationManager notificationManager = (NotificationManager) this.
-                        getSystemService(NOTIFICATION_SERVICE);
-
-                if (notificationManager != null) {
-                    notificationManager.cancel(ind);
-                }
-
-                Toast.makeText(this, String.format("Clicked: %s, %s", title, button),
-                        Toast.LENGTH_LONG).show();
-
-                List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-                Map<String, Phenomenon> phenomenaByTitle = new HashMap<>();
-                String nextTitle = "";
-
-                for (Phenomenon phenomenon : phenomena) {
-                    phenomenaByTitle.put(phenomenon.title, phenomenon);
-
-                    if (nextTitle.isEmpty() && phenomenon.title.equals(title)) {
-                        if (phenomenon.button1.equals(button)) {
-                            nextTitle = phenomenon.conn1;
-                        } else if (phenomenon.button2.equals(button)) {
-                            nextTitle = phenomenon.conn2;
-                        } else if (phenomenon.button3.equals(button)) {
-                            nextTitle = phenomenon.conn3;
-                        }
-                    }
-                }
-
-                if (!nextTitle.isEmpty()) {
-                    if (phenomenaByTitle.containsKey(nextTitle)) {
-                        showNotification(phenomenaByTitle.get(nextTitle));
-                    }
-                }
-            }
-        }
-
-
-    }
-
-    private static int runningNotificationIndex = 0;
-
-    private void showNotification(Phenomenon phenomenon) {
-        showNotification(this, phenomenon.title, phenomenon.button1, phenomenon.button2, phenomenon.button3);
-    }
-
-    private static void showNotification(Context context, String title, String button1, String button2, String button3) {
-        int ind = runningNotificationIndex++;
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(context)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
-                .setContentText(title)
-                .setAutoCancel(true);
-
-        int requestCode = 0;
-        for (String button : new String[] {button1, button2, button3}) {
-            if (!button.isEmpty()) {
-                Intent intent = new Intent(context, MainActivity.class);
-                intent.setAction("showNotification");
-                intent.putExtra("title", title);
-                intent.putExtra("button", button);
-                intent.putExtra("notificationIndex", ind);
-                intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_SINGLE_TOP);
-
-                PendingIntent pendingIntent = PendingIntent.getActivity(context, requestCode++,
-                        intent, PendingIntent.FLAG_UPDATE_CURRENT);
-                NotificationCompat.Action action = new NotificationCompat.Action
-                        .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
-
-                builder.addAction(action);
-            }
-        }
-
-        Notification notification = builder.build();
-        notification.flags |= Notification.FLAG_AUTO_CANCEL;
-
-        NotificationManager notificationManager = (NotificationManager)context.getSystemService(NOTIFICATION_SERVICE);
-        if (notificationManager != null) {
-            notificationManager.notify(ind, notification);
-        }
-    }
-
-    private void schedulePhenomenonNotification(Phenomenon phenomenon) {
-        long time = new GregorianCalendar().getTimeInMillis() + 10000;
-        Intent intent = new Intent(this, PhenomenonNotificationReceiver.class);
-        intent.putExtra("title", phenomenon.title);
-        intent.putExtra("button1", phenomenon.button1);
-        intent.putExtra("button2", phenomenon.button2);
-        intent.putExtra("button3", phenomenon.button3);
-
-        AlarmManager manager = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        if (manager != null) {
-            manager.set(AlarmManager.RTC_WAKEUP, time, PendingIntent.getBroadcast(this, 1, intent, PendingIntent.FLAG_UPDATE_CURRENT));
-        } else {
-            Toast.makeText(this, "Couldn't schedule phenomenon notification", Toast.LENGTH_LONG).show();
-        }
-    }
-
-    public static class PhenomenonNotificationReceiver extends BroadcastReceiver {
-        @Override
-        public void onReceive(Context context, Intent intent) {
-            String action = intent.getAction();
-            if (action != null && action.equals("android.intent.action.BOOT_COMPLETED")) {
-                System.out.println("boot!");
-            } else if (action != null && action.equals("showNotification")) {
-                Bundle bundle = intent.getExtras();
-                if (bundle != null &&
-                        bundle.containsKey("title") &&
-                        bundle.containsKey("button1") &&
-                        bundle.containsKey("button3") &&
-                        bundle.containsKey("button3")) {
-                    showNotification(context, bundle.getString("title"),
-                            bundle.getString("button1"),
-                            bundle.getString("button2"),
-                            bundle.getString("button3"));
-                }
-            }
-        }
-    }
-
     /**
      * A placeholder fragment containing a simple view.
      */
@@ -261,8 +112,10 @@ public class MainActivity extends AppCompatActivity {
 
         private int phenomenonIndex = -1;
         private List<String> titles = null;
+        private String myTitle = null;
 
         public PlaceholderFragment() {
+            EventBus.getDefault().register(this);
         }
 
         /**
@@ -294,14 +147,22 @@ public class MainActivity extends AppCompatActivity {
                 ArrayList<String> preTitles = bundle.getStringArrayList(ARG_TITLES);
                 if (preTitles != null) {
                     titles = new ArrayList<>(preTitles);
-                    titles.add(0, "");
+                    titles.add(0, "None");
                 }
             }
 
             int[] spinnerSelections = new int[3];
 
+            Spinner phenomenonStarttime = rootView.findViewById(R.id.phenomenonStarttime);
+            phenomenonStarttime.setSelection(0);
+            Spinner phenomenonEndtime = rootView.findViewById(R.id.phenomenonEndtime);
+            phenomenonEndtime.setSelection(23);
+            Spinner phenomenonHowmany = rootView.findViewById(R.id.phenomenonHowmany);
+            phenomenonHowmany.setSelection(0);
+
             if (phenomenonIndex >= 0 && phenomenonIndex < phenomena.size()) {
                 Phenomenon phenomenon = phenomena.get(phenomenonIndex);
+                myTitle = phenomenon.title;
 
                 EditText phenomenonTitle = rootView.findViewById(R.id.phenomenonTitle);
                 phenomenonTitle.setText(phenomenon.title);
@@ -330,9 +191,14 @@ public class MainActivity extends AppCompatActivity {
                 doNowBtn.setOnClickListener(v -> {
                     MainActivity mainActivity = (MainActivity) getContext();
                     if (mainActivity != null) {
-                        mainActivity.showNotification(phenomenon);
+                        new PhenomenonNotificationManager(mainActivity).setNotification(phenomenonIndex, phenomenon,
+                                new GregorianCalendar().getTimeInMillis());
                     }
                 });
+
+                phenomenonStarttime.setSelection(phenomenon.starttime);
+                phenomenonEndtime.setSelection(phenomenon.endtime);
+                phenomenonHowmany.setSelection(phenomenon.howmany);
             }
 
             int[] spinnerIds = new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3};
@@ -352,18 +218,30 @@ public class MainActivity extends AppCompatActivity {
 
             Button saveBtn  = rootView.findViewById(R.id.phenomenonSave);
             saveBtn.setOnClickListener(view -> {
+                MainActivity mainActivity = (MainActivity) getContext();
+                PhenomenonNotificationManager phenomenonNotificationManager = null;
+                if (mainActivity != null) {
+                    phenomenonNotificationManager = new PhenomenonNotificationManager(mainActivity);
+                }
                 ArrayList<Phenomenon> phenomena1 = FileUtils.loadPhenomena();
+                Phenomenon phenomenon;
 
                 if (phenomenonIndex < 0 || phenomenonIndex >= phenomena1.size()) {
-                    phenomena1.add(new Phenomenon());
+                    phenomenon = new Phenomenon();
+                    phenomena1.add(phenomenon);
                     phenomenonIndex = phenomena1.size() - 1;
+                } else {
+                    phenomenon = phenomena1.get(phenomenonIndex);
+                    if (phenomenonNotificationManager != null) {
+                        phenomenonNotificationManager.cancelNotification(phenomenonIndex, phenomenon);
+                    }
                 }
 
-                Phenomenon phenomenon = phenomena1.get(phenomenonIndex);
                 boolean isEmpty = true;
 
                 EditText phenomenonTitle = rootView.findViewById(R.id.phenomenonTitle);
                 phenomenon.title = phenomenonTitle.getText().toString();
+                myTitle = phenomenon.title;
                 isEmpty &= phenomenon.title.isEmpty();
 
                 EditText phenomenonButton1 = rootView.findViewById(R.id.phenomenonButton1);
@@ -380,26 +258,28 @@ public class MainActivity extends AppCompatActivity {
 
                 Spinner phenomenonConn1 = rootView.findViewById(R.id.phenomenonConn1);
                 phenomenon.conn1 = phenomenonConn1.getSelectedItem().toString();
-                isEmpty &= phenomenon.conn1.isEmpty();
+                isEmpty &= phenomenon.conn1.equals("None");
 
                 Spinner phenomenonConn2 = rootView.findViewById(R.id.phenomenonConn2);
                 phenomenon.conn2 = phenomenonConn2.getSelectedItem().toString();
-                isEmpty &= phenomenon.conn2.isEmpty();
+                isEmpty &= phenomenon.conn2.equals("None");
 
                 Spinner phenomenonConn3 = rootView.findViewById(R.id.phenomenonConn3);
                 phenomenon.conn3 = phenomenonConn3.getSelectedItem().toString();
-                isEmpty &= phenomenon.conn3.isEmpty();
+                isEmpty &= phenomenon.conn3.equals("None");
 
-                phenomenon.starttime = 0;
-                phenomenon.endtime = 1;
-                phenomenon.howmany = 1;
+//                Spinner phenomenonStarttime1 = rootView.findViewById(R.id.phenomenonStarttime);
+
+                phenomenon.starttime = phenomenonStarttime.getSelectedItemPosition();
+                phenomenon.endtime = phenomenonEndtime.getSelectedItemPosition();
+                phenomenon.howmany = phenomenonHowmany.getSelectedItemPosition();
 
                 if (isEmpty) {
                     phenomena1.remove(phenomenonIndex);
                 } else {
-                    MainActivity mainActivity = (MainActivity) getContext();
-                    if (mainActivity != null) {
-                        mainActivity.schedulePhenomenonNotification(phenomenon);
+                    if (phenomenonNotificationManager != null) {
+                        phenomenonNotificationManager.setNotification(phenomenonIndex, phenomenon,
+                                new GregorianCalendar().getTimeInMillis());
                     }
                 }
 
@@ -416,6 +296,32 @@ public class MainActivity extends AppCompatActivity {
             });
 
             return rootView;
+        }
+
+        @Subscribe
+        public void onSetFragmentTitlesEvent (SetFragmentTitlesEvent  event) {
+            Log.d("Fragment", String.format("got event %d", phenomenonIndex));
+
+            View rootView = getView();
+            Context context = getContext();
+            if (rootView != null && context != null) {
+                titles = new ArrayList<>(event.titlesArr);
+                titles.add(0, "None");
+                titles.remove(myTitle);
+
+                for (int spinnerId : new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3}) {
+                    Spinner spinner = rootView.findViewById(spinnerId);
+                    String selectionText = spinner.getSelectedItem().toString();
+
+                    ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item, titles);
+                    adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+                    spinner.setAdapter(adapter);
+
+                    spinner.setSelection(titles.indexOf(selectionText));
+                }
+
+                Log.d("Fragment", String.format("updated titles %d", phenomenonIndex));
+            }
         }
     }
 
@@ -445,13 +351,26 @@ public class MainActivity extends AppCompatActivity {
         public int getCount() {
             return FileUtils.loadPhenomena().size() + 1;
         }
+
+    }
+
+    @Subscribe
+    public void onInvalidateSectionsPagerAdapter(InvalidateSectionsPagerAdapter event) {
+        Log.d("MainActivity", "onInvalidateSectionsPagerAdapter called");
+        List<Phenomenon> phenomena = FileUtils.loadPhenomena();
+        ArrayList<String> titlesArr = new ArrayList<>(phenomena.size());
+
+        for (Phenomenon phenomenon : phenomena) {
+            titlesArr.add(phenomenon.title);
+        }
+
+        SetFragmentTitlesEvent setFragmentTitlesEvent = new SetFragmentTitlesEvent();
+        setFragmentTitlesEvent.titlesArr = titlesArr;
+        EventBus.getDefault().post(setFragmentTitlesEvent);
+
+        mSectionsPagerAdapter.notifyDataSetChanged();
     }
 
     private static class InvalidateSectionsPagerAdapter { }
-
-    @Subscribe
-    public void onInvalidateSectionsPagersAdapter(InvalidateSectionsPagerAdapter event) {
-        mSectionsPagerAdapter.notifyDataSetChanged();
-        System.out.println("notified dataset changed");
-    }
+    private static class SetFragmentTitlesEvent { public ArrayList<String> titlesArr = null; }
 }

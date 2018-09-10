@@ -7,6 +7,51 @@
     <string name="button1">Button1</string>
     <string name="button2">Button2</string>
     <string name="button3">Button3</string>
+    <string name="choose_continuation">Choose continuation</string>
     <string name="save">Save</string>
     <string name="do_now">Do now</string>
+    <string name="start_at">Start at:</string>
+    <string name="end_at">End at:</string>
+    <string name="avg_times">Avg. times:</string>
+    <string-array name="hours_array">
+        <item>0 AM</item>
+        <item>1 AM</item>
+        <item>2 AM</item>
+        <item>3 AM</item>
+        <item>4 AM</item>
+        <item>5 AM</item>
+        <item>6 AM</item>
+        <item>7 AM</item>
+        <item>8 AM</item>
+        <item>9 AM</item>
+        <item>10 AM</item>
+        <item>11 AM</item>
+        <item>12 PM</item>
+        <item>1 PM</item>
+        <item>2 PM</item>
+        <item>3 PM</item>
+        <item>4 PM</item>
+        <item>5 PM</item>
+        <item>6 PM</item>
+        <item>7 PM</item>
+        <item>8 PM</item>
+        <item>9 PM</item>
+        <item>10 PM</item>
+        <item>11 PM</item>
+    </string-array>
+    <string-array name="howmany_array">
+        <item>0</item>
+        <item>1</item>
+        <item>2</item>
+        <item>3</item>
+        <item>4</item>
+        <item>5</item>
+        <item>6</item>
+        <item>7</item>
+        <item>8</item>
+        <item>9</item>
+        <item>10</item>
+        <item>11</item>
+        <item>12</item>
+    </string-array>
 </resources>
