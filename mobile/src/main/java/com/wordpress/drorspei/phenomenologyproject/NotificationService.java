@@ -19,8 +19,8 @@ public class NotificationService extends IntentService {
         super("NotificationService");
     }
 
-    public static int runningNotificationIndex = 0;
-    public static int runningRequestCode = 1 << 16;
+    private static int runningNotificationIndex = 0;
+    private static int runningRequestCode = 1 << 16;
 
     private void showNotification(String title, String button1, String button2, String button3) {
         Log.d("NotificationService", "Showing notification");
@@ -30,7 +30,8 @@ public class NotificationService extends IntentService {
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
                 .setContentTitle(title)
                 .setContentText(title)
-                .setAutoCancel(true);
+                .setAutoCancel(true)
+                .setVibrate(new long[] {1000, 1000});
 
         for (String button : new String[] {button1, button2, button3}) {
             if (!button.isEmpty()) {
