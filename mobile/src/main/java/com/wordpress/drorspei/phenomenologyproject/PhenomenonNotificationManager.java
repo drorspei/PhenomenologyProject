@@ -9,16 +9,16 @@ import android.util.Log;
 import java.text.SimpleDateFormat;
 import java.util.*;
 
-public class PhenomenonNotificationManager {
+class PhenomenonNotificationManager {
     private Context context;
     private AlarmManager alarmManager;
 
-    public PhenomenonNotificationManager(Context context_) {
+    PhenomenonNotificationManager(Context context_) {
         context = context_;
         alarmManager = (AlarmManager)context_.getSystemService(Context.ALARM_SERVICE);
     }
 
-    public PendingIntent notificationPendingIntent(int phenomenonIndex, Phenomenon phenomenon) {
+    private PendingIntent notificationPendingIntent(int phenomenonIndex, Phenomenon phenomenon) {
         Intent intent = new Intent(context, OnAlarmReceiver.class);
         intent.setAction("showNotification");
         intent.putExtra("title", phenomenon.title);
@@ -32,8 +32,8 @@ public class PhenomenonNotificationManager {
                 PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    public void setNotification(int phenomenonIndex, Phenomenon phenomenon, long when) {
-        Log.d("PhenomenonNotificationManager", "Setting notification");
+    void setNotification(int phenomenonIndex, Phenomenon phenomenon, long when) {
+        Log.d("PhenomenonNotifMan", "Setting notification");
 
         PendingIntent pendingIntent = notificationPendingIntent(phenomenonIndex, phenomenon);
 
@@ -42,11 +42,11 @@ public class PhenomenonNotificationManager {
 
             alarmManager.set(AlarmManager.RTC_WAKEUP, when, pendingIntent);
         } else {
-            Log.d("PhenomenonNotificationManager", "Couldn't schedule phenomenon notification");
+            Log.d("PhenomenonNotifMan", "Couldn't schedule phenomenon notification");
         }
     }
 
-    public void setRandomTimeNotification(int phenomenonIndex, Phenomenon phenomenon) {
+    void setRandomTimeNotification(int phenomenonIndex, Phenomenon phenomenon) {
         if (phenomenon.endtime > phenomenon.starttime && phenomenon.howmany > 0) {
             double lambda = phenomenon.howmany / (double)(phenomenon.endtime - phenomenon.starttime);
             double totalHours = -Math.log(new Random().nextDouble()) / lambda;
@@ -81,7 +81,7 @@ public class PhenomenonNotificationManager {
 
 
 
-            Log.d("PhenomenonNotificationManager",
+            Log.d("PhenomenonNotifMan",
                     String.format("Notification scheduled for: %s",
                             new SimpleDateFormat("dd-MM-yyyy HH:mm:ss",
                                     Locale.getDefault()).format(cal.getTime())));
@@ -90,15 +90,15 @@ public class PhenomenonNotificationManager {
         }
     }
 
-    public void cancelNotification(int phenomenonIndex, Phenomenon phenomenon) {
-        Log.d("PhenomenonNotificationManager", "Cancelling notification");
+    void cancelNotification(int phenomenonIndex, Phenomenon phenomenon) {
+        Log.d("PhenomenonNotifMan", "Cancelling notification");
         PendingIntent pendingIntent = notificationPendingIntent(phenomenonIndex, phenomenon);
         if (alarmManager != null) {
             alarmManager.cancel(pendingIntent);
         }
     }
 
-    public void setRandomTimeAll() {
+    void setRandomTimeAll() {
         ArrayList<Phenomenon> phenomena = FileUtils.loadPhenomena();
         int i = 0;
 

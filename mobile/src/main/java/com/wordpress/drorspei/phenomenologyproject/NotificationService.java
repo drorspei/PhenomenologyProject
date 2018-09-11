@@ -1,10 +1,9 @@
 package com.wordpress.drorspei.phenomenologyproject;
 
-import android.app.IntentService;
-import android.app.Notification;
-import android.app.NotificationManager;
-import android.app.PendingIntent;
+import android.app.*;
 import android.content.Intent;
+import android.graphics.Color;
+import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
@@ -19,18 +18,36 @@ public class NotificationService extends IntentService {
         super("NotificationService");
     }
 
-    public static int runningNotificationIndex = 0;
-    public static int runningRequestCode = 1 << 16;
+    private static int runningNotificationIndex = 0;
+    private static int runningRequestCode = 1 << 16;
 
     private void showNotification(String title, String button1, String button2, String button3) {
         Log.d("NotificationService", "Showing notification");
         int ind = runningNotificationIndex++;
+        final String NOTIFICATION_CHANNEL_ID = "phenomenon_notifications";
 
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this)
+        NotificationManager notificationManager = (NotificationManager)this.getSystemService(NOTIFICATION_SERVICE);
+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager != null) {
+            NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
+                    "My Notifications",
+                    NotificationManager.IMPORTANCE_DEFAULT);
+
+            // Configure the notification channel.
+            notificationChannel.setDescription("Channel description");
+            notificationChannel.enableLights(true);
+            notificationChannel.setLightColor(Color.RED);
+            notificationChannel.setVibrationPattern(new long[]{1000, 1000});
+            notificationChannel.enableVibration(true);
+            notificationManager.createNotificationChannel(notificationChannel);
+        }
+
+        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
                 .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle(title)
+                .setContentTitle("Phenomenon Notification")
                 .setContentText(title)
-                .setAutoCancel(true);
+                .setAutoCancel(true)
+                .setDefaults(Notification.DEFAULT_ALL);
 
         for (String button : new String[] {button1, button2, button3}) {
             if (!button.isEmpty()) {
@@ -52,7 +69,6 @@ public class NotificationService extends IntentService {
         Notification notification = builder.build();
         notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
-        NotificationManager notificationManager = (NotificationManager)this.getSystemService(NOTIFICATION_SERVICE);
         if (notificationManager != null) {
             notificationManager.notify(ind, notification);
         }
