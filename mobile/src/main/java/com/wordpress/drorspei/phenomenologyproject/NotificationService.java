@@ -7,6 +7,8 @@ import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import com.wordpress.drorspei.phenomenologyproject.data.Phenomenon;
+import com.wordpress.drorspei.phenomenologyproject.data.SavedPhenomenon;
 
 import java.io.IOException;
 import java.text.DateFormat;
