@@ -9,7 +9,7 @@ import android.util.Log;
 public class OnAlarmReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
-        Log.d("OnAlarmReceiver", "Received intent");
+        Log.d("PhenomenologyProject", "OnAlarmReceiver Received intent");
 
         Bundle bundle = intent.getExtras();
         if (bundle != null) {

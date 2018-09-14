@@ -1,16 +1,20 @@
 package com.wordpress.drorspei.phenomenologyproject;
 
 import android.app.*;
+import android.content.Context;
 import android.content.Intent;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
 import android.support.v4.app.NotificationCompat;
 import android.util.Log;
+import com.wordpress.drorspei.phenomenologyproject.data.*;
+import com.wordpress.drorspei.phenomenologyproject.timedistributions.IPhenomenonTimeDistribution;
+import com.wordpress.drorspei.phenomenologyproject.timedistributions.PhenomenonTimePoissonDistribution;
+import jsondbs.JsonPhenomenaDb;
+import jsondbs.JsonSavedPhenomenaDb;
+import jsondbs.JsonScheduleDb;
 
-import java.io.IOException;
-import java.text.DateFormat;
-import java.text.SimpleDateFormat;
 import java.util.*;
 
 public class NotificationService extends IntentService {
@@ -21,92 +25,81 @@ public class NotificationService extends IntentService {
     private static int runningNotificationIndex = 0;
     private static int runningRequestCode = 1 << 16;
 
-    private void showNotification(String title, String button1, String button2, String button3) {
+    static void showNotification(Context context, Phenomenon phenomenon) {
         Log.d("NotificationService", "Showing notification");
         int ind = runningNotificationIndex++;
         final String NOTIFICATION_CHANNEL_ID = "phenomenon_notifications";
 
-        NotificationManager notificationManager = (NotificationManager)this.getSystemService(NOTIFICATION_SERVICE);
-
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O && notificationManager != null) {
-            NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
-                    "My Notifications",
-                    NotificationManager.IMPORTANCE_DEFAULT);
-
-            // Configure the notification channel.
-            notificationChannel.setDescription("Channel description");
-            notificationChannel.enableLights(true);
-            notificationChannel.setLightColor(Color.RED);
-            notificationChannel.setVibrationPattern(new long[]{1000, 1000});
-            notificationChannel.enableVibration(true);
-            notificationManager.createNotificationChannel(notificationChannel);
-        }
-
-        NotificationCompat.Builder builder = new NotificationCompat.Builder(this, NOTIFICATION_CHANNEL_ID)
-                .setSmallIcon(android.R.drawable.ic_dialog_info)
-                .setContentTitle("Phenomenon Notification")
-                .setContentText(title)
-                .setAutoCancel(true)
-                .setDefaults(Notification.DEFAULT_ALL);
-
-        for (String button : new String[] {button1, button2, button3}) {
-            if (!button.isEmpty()) {
-                Intent intent = new Intent(this, NotificationService.class);
-                intent.setAction("recordPhenomenon");
-                intent.putExtra("title", title);
-                intent.putExtra("button", button);
-                intent.putExtra("notificationIndex", ind);
-
-                PendingIntent pendingIntent = PendingIntent.getService(this, runningRequestCode++,
-                        intent, PendingIntent.FLAG_ONE_SHOT);
-                NotificationCompat.Action action = new NotificationCompat.Action
-                        .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
-
-                builder.addAction(action);
-            }
-        }
-
-        Notification notification = builder.build();
-        notification.flags |= Notification.FLAG_AUTO_CANCEL;
+        NotificationManager notificationManager = (NotificationManager)context.getSystemService(NOTIFICATION_SERVICE);
 
         if (notificationManager != null) {
+            // Gotta set a channel for new Androids. What a bummer, really.
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
+                        "My Notifications",
+                        NotificationManager.IMPORTANCE_DEFAULT);
+
+                // Configure the notification channel.
+                notificationChannel.setDescription("Channel description");
+                notificationChannel.enableLights(true);
+                notificationChannel.setLightColor(Color.RED);
+                notificationChannel.setVibrationPattern(new long[]{1000, 1000});
+                notificationChannel.enableVibration(true);
+                notificationManager.createNotificationChannel(notificationChannel);
+            }
+
+            // Start building the phenomenon notification.
+            NotificationCompat.Builder builder = new NotificationCompat.Builder(context, NOTIFICATION_CHANNEL_ID)
+                    .setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle("Phenomenon Notification")
+                    .setContentText(phenomenon.title)
+                    .setAutoCancel(true)
+                    .setDefaults(Notification.DEFAULT_ALL);
+
+            // Add the buttons.
+            int buttonIndex = 0;
+            for (String button : phenomenon.buttons) {
+                if (!button.isEmpty()) {
+                    Intent intent = new Intent(context, NotificationService.class);
+                    intent.setAction("saveAndContinuePhenomenon");
+                    intent.putExtra("phenomenon", phenomenon);
+                    intent.putExtra("buttonIndex", buttonIndex);
+                    intent.putExtra("notificationIndex", ind);
+
+                    PendingIntent pendingIntent = PendingIntent.getService(context, runningRequestCode++,
+                            intent, PendingIntent.FLAG_ONE_SHOT);
+                    NotificationCompat.Action action = new NotificationCompat.Action
+                            .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
+
+                    builder.addAction(action);
+                }
+
+                buttonIndex++;
+            }
+
+            Notification notification = builder.build();
+            notification.flags |= Notification.FLAG_AUTO_CANCEL;
+
+            // Finally show the notification.
             notificationManager.notify(ind, notification);
         }
-
-        List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-        int i = 0;
-
-        for (Phenomenon phenomenon : phenomena) {
-            if (phenomenon.title.equals(title)) {
-                new PhenomenonNotificationManager(this).setRandomTimeNotification(i, phenomenon);
-                break;
-            }
-            i++;
-        }
     }
 
-    private void showNotification(Phenomenon phenomenon) {
-        showNotification(phenomenon.title, phenomenon.button1, phenomenon.button2, phenomenon.button3);
-    }
+    private void saveAndContinuePhenomenon(Phenomenon phenomenon, int buttonIndex) {
+        // Save phenomenon.
+        ISavedPhenomenaDb savedPhenomenaDb = new JsonSavedPhenomenaDb();
+        savedPhenomenaDb.add(new SavedPhenomenon(phenomenon, buttonIndex, new Date()));
 
-    private void savePhenomenon(String title, String button) {
-        Log.d("NotificationService", "Saving phenomenon");
+        Log.d("PhenomenologyProject",
+                String.format("NotificationService saveAndContinuePhenomenon: %s, %s",
+                        phenomenon.title, phenomenon.buttons[buttonIndex]));
 
-        DateFormat df = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSSZ", Locale.ENGLISH);
-        String date = df.format(Calendar.getInstance().getTime());
+        // Get continuation if it exists and show it.
+        IPhenomenaDb phenomenaDb = new JsonPhenomenaDb();
+        Phenomenon continuation = phenomenaDb.getByTitle(phenomenon.continuations[buttonIndex]);
 
-        SavedPhenomenon savedPhenomenon = new SavedPhenomenon();
-        savedPhenomenon.title = title;
-        savedPhenomenon.button = button;
-        savedPhenomenon.date = date;
-
-        ArrayList<SavedPhenomenon> savedPhenomena = FileUtils.loadSavedPhenomena();
-        savedPhenomena.add(savedPhenomenon);
-        try {
-            FileUtils.saveSavedPhenomena(savedPhenomena);
-        } catch (IOException e) {
-            Log.d("NotificationService", "Failed to save phenomenon entry");
-            e.printStackTrace();
+        if (continuation != null) {
+            showNotification(this, continuation);
         }
     }
 
@@ -114,62 +107,62 @@ public class NotificationService extends IntentService {
     final protected void onHandleIntent(Intent intent) {
         Log.d("NotificationService", "Got intent");
 
-        Bundle bundle = intent.getExtras();
         String action = intent.getAction();
 
-        if (bundle != null && action != null) {
-            if(intent.getAction().equals("showNotification")
-                    && bundle.containsKey("title")
-                    && bundle.containsKey("button1")
-                    && bundle.containsKey("button3")
-                    && bundle.containsKey("button3")) {
+        if (action != null) {
+            if(intent.getAction().equals("showNotification")) {
                 Log.d("NotificationService", "Got showNotification intent");
 
-                showNotification(bundle.getString("title"),
-                        bundle.getString("button1"),
-                        bundle.getString("button2"),
-                        bundle.getString("button3"));
-            }
-            else if(action.equals("recordPhenomenon") && bundle.containsKey("title") && bundle.containsKey("button"))
-            {
-                Log.d("NotificationService", "Got recordPhenomenon intent");
+                IScheduleDb scheduleDb = new JsonScheduleDb();
+                ScheduleItem scheduleItem = scheduleDb.getNext();
 
-                String title = bundle.getString("title");
-                String button = bundle.getString("button");
-                int ind = bundle.getInt("notificationIndex");
+                // If we have anything scheduled.
+                if (scheduleItem != null) {
+                    Calendar calendar = Calendar.getInstance();
+                    calendar.add(Calendar.MINUTE, -5);
+                    Date fiveMinutesAgo = calendar.getTime();
 
-                savePhenomenon(title, button);
+                    calendar.add(Calendar.MINUTE, 10);
+                    Date inFiveMinutes = calendar.getTime();
 
-                NotificationManager notificationManager = (NotificationManager) this.
-                        getSystemService(NOTIFICATION_SERVICE);
-
-                if (notificationManager != null) {
-                    notificationManager.cancel(ind);
-                }
-
-                Log.d("NotificationService", String.format("Clicked: %s, %s", title, button));
-
-                List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-                Map<String, Phenomenon> phenomenaByTitle = new HashMap<>();
-                String nextTitle = "";
-
-                for (Phenomenon phenomenon : phenomena) {
-                    phenomenaByTitle.put(phenomenon.title, phenomenon);
-
-                    if (nextTitle.isEmpty() && phenomenon.title.equals(title)) {
-                        if (phenomenon.button1.equals(button)) {
-                            nextTitle = phenomenon.conn1;
-                        } else if (phenomenon.button2.equals(button)) {
-                            nextTitle = phenomenon.conn2;
-                        } else if (phenomenon.button3.equals(button)) {
-                            nextTitle = phenomenon.conn3;
+                    // Check we're not too early for this notification.
+                    if (scheduleItem.date.before(inFiveMinutes)) {
+                        // If scheduled item is for the next five minutes, meh, show it now.
+                        if (scheduleItem.date.after(fiveMinutesAgo)) {
+                            showNotification(this, scheduleItem.phenomenon);
                         }
-                    }
-                }
 
-                if (!nextTitle.isEmpty() && !nextTitle.equals("None")) {
-                    if (phenomenaByTitle.containsKey(nextTitle)) {
-                        showNotification(phenomenaByTitle.get(nextTitle));
+                        // Shown or old, remove it from schedule.
+                        scheduleDb.remove(scheduleItem.phenomenon);
+
+                        // Reschedule the phenomenon notification for a random time.
+                        IPhenomenonTimeDistribution timeDistribution = new PhenomenonTimePoissonDistribution();
+                        scheduleDb.add(scheduleItem.phenomenon,
+                                timeDistribution.nextTime(scheduleItem.phenomenon, new Date()));
+                    }
+
+                    // Set notification in time for next schedule item, whether it's the same or a new one.
+                    new PhenomenonNotificationManager(this).setNextNotification();
+                }
+            } else if(action.equals("saveAndContinuePhenomenon")) {
+                Log.d("NotificationService", "Got saveAndContinuePhenomenon intent");
+
+                Bundle bundle = intent.getExtras();
+                if (bundle != null) {
+                    Phenomenon phenomenon = bundle.getParcelable("phenomenon");
+                    int buttonIndex = bundle.getInt("buttonIndex");
+                    int ind = bundle.getInt("notificationIndex");
+
+                    // Cancel present notification.
+                    NotificationManager notificationManager = (NotificationManager) this.
+                            getSystemService(NOTIFICATION_SERVICE);
+                    if (notificationManager != null) {
+                        notificationManager.cancel(ind);
+                    }
+
+                    // Call to save phenomenon.
+                    if (phenomenon != null) {
+                        saveAndContinuePhenomenon(phenomenon, buttonIndex);
                     }
                 }
             }

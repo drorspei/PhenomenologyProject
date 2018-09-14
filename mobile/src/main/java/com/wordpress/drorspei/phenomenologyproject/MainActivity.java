@@ -12,6 +12,9 @@ import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.Toolbar;
 import android.util.Log;
 import android.view.*;
+import com.wordpress.drorspei.phenomenologyproject.data.IPhenomenaDb;
+import com.wordpress.drorspei.phenomenologyproject.data.Phenomenon;
+import jsondbs.JsonPhenomenaDb;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
@@ -107,19 +110,20 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public Fragment getItem(int position) {
-            List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-            ArrayList<String> titlesArr = new ArrayList<>(phenomena.size());
-
-            for (Phenomenon phenomenon : phenomena) {
-                titlesArr.add(phenomenon.title);
+            IPhenomenaDb phenomenaDb = new JsonPhenomenaDb();
+            List<Phenomenon> phenomena = phenomenaDb.getAll();
+            if (position < phenomena.size()) {
+                return PhenomenonFragment.newInstance(phenomena.get(position));
+            } else {
+                return PhenomenonFragment.newInstance(null);
             }
 
-            return PhenomenonFragment.newInstance(position, titlesArr);
         }
 
         @Override
         public int getCount() {
-            return FileUtils.loadPhenomena().size() + 1;
+            IPhenomenaDb phenomenaDb = new JsonPhenomenaDb();
+            return phenomenaDb.getAll().size() + 1;
         }
 
     }
@@ -127,20 +131,11 @@ public class MainActivity extends AppCompatActivity {
     @Subscribe
     public void onInvalidateSectionsPagerAdapter(InvalidateSectionsPagerAdapter event) {
         Log.d("MainActivity", "onInvalidateSectionsPagerAdapter called");
-        List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-        ArrayList<String> titlesArr = new ArrayList<>(phenomena.size());
 
-        for (Phenomenon phenomenon : phenomena) {
-            titlesArr.add(phenomenon.title);
-        }
-
-        SetFragmentTitlesEvent setFragmentTitlesEvent = new SetFragmentTitlesEvent();
-        setFragmentTitlesEvent.titlesArr = titlesArr;
-        EventBus.getDefault().post(setFragmentTitlesEvent);
-
+        EventBus.getDefault().post(new SetFragmentTitlesEvent());
         mSectionsPagerAdapter.notifyDataSetChanged();
     }
 
     static class InvalidateSectionsPagerAdapter { }
-    static class SetFragmentTitlesEvent { ArrayList<String> titlesArr = null; }
+    static class SetFragmentTitlesEvent {  }
 }
