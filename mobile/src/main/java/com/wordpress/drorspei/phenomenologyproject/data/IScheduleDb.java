@@ -24,4 +24,9 @@ public interface IScheduleDb {
      * @param phenomenon Instance to remove.
      */
     void remove(Phenomenon phenomenon);
+
+    /**
+     * Removes all scheduled items.
+     */
+    void clear();
 }

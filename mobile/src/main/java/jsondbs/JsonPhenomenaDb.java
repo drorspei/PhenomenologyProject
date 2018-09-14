@@ -35,7 +35,7 @@ public class JsonPhenomenaDb implements IPhenomenaDb {
 
     private void savePhenomena() {
         try (Writer writer = new FileWriter(getPhenomenaDbPath())) {
-            Gson gson = new GsonBuilder().create();
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
             gson.toJson(phenomena, writer);
         } catch (IOException e) {
             Log.e("PhenomenonologyProject", "JsonPhenomenaDb.savePhenomena() failed to write to file.");
@@ -44,14 +44,31 @@ public class JsonPhenomenaDb implements IPhenomenaDb {
 
     @Override
     public void add(Phenomenon phenomenon) {
-        phenomena.add(phenomenon);
-        savePhenomena();
+        if (phenomenon != null) {
+            phenomena.add(phenomenon);
+            savePhenomena();
+        }
+    }
+
+    @Override
+    public Phenomenon getByTitle(String title) {
+        if (title != null) {
+            for (Phenomenon phenomenon : phenomena) {
+                if (title.equals(phenomenon.title)) {
+                    return phenomenon;
+                }
+            }
+        }
+
+        return null;
     }
 
     @Override
     public void remove(Phenomenon phenomenon) {
-        if (phenomena.remove(phenomenon)) {
-            savePhenomena();
+        if (phenomenon != null) {
+            if (phenomena.remove(getByTitle(phenomenon.title))) {
+                savePhenomena();
+            }
         }
     }
 

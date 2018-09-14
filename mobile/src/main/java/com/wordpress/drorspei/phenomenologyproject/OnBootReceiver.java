@@ -9,7 +9,8 @@ public class OnBootReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
         if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction()) || "android.intent.action.QUICKBOOT_POWERON".equals(intent.getAction())) {
-            Log.d("OnBootReceiver", "Boot completed");
+            Log.d("PhenomenologyProject", "OnBootReceiver called");
+
             new PhenomenonNotificationManager(context).setRandomTimeAll();
         }
     }

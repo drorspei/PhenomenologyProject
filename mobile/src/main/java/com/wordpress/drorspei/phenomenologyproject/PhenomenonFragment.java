@@ -9,13 +9,18 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.*;
+import com.wordpress.drorspei.phenomenologyproject.data.IPhenomenaDb;
+import com.wordpress.drorspei.phenomenologyproject.data.IScheduleDb;
 import com.wordpress.drorspei.phenomenologyproject.data.Phenomenon;
+import com.wordpress.drorspei.phenomenologyproject.timedistributions.IPhenomenonTimeDistribution;
+import com.wordpress.drorspei.phenomenologyproject.timedistributions.PhenomenonTimePoissonDistribution;
+import jsondbs.JsonPhenomenaDb;
+import jsondbs.JsonScheduleDb;
 import org.greenrobot.eventbus.EventBus;
 import org.greenrobot.eventbus.Subscribe;
 
-import java.io.IOException;
 import java.util.ArrayList;
-import java.util.GregorianCalendar;
+import java.util.Date;
 import java.util.List;
 
 /**
@@ -26,12 +31,7 @@ public class PhenomenonFragment extends Fragment {
      * The fragment argument representing the section number for this
      * fragment.
      */
-    private static final String ARG_SECTION_NUMBER = "section_number";
-    private static final String ARG_TITLES = "titles";
-
-    private int phenomenonIndex = -1;
-    private List<String> titles = null;
-    private String myTitle = null;
+    private Phenomenon phenomenon;
 
     public PhenomenonFragment() {
         EventBus.getDefault().register(this);
@@ -41,15 +41,46 @@ public class PhenomenonFragment extends Fragment {
      * Returns a new instance of this fragment for the given section
      * number.
      */
-    static PhenomenonFragment newInstance(int sectionNumber, ArrayList<String> titles) {
+    static PhenomenonFragment newInstance(Phenomenon phenomenon) {
         PhenomenonFragment fragment = new PhenomenonFragment();
         Bundle args = new Bundle();
-        args.putInt(ARG_SECTION_NUMBER, sectionNumber);
-
-        args.putStringArrayList(ARG_TITLES, titles);
+        args.putParcelable("phenomenon", phenomenon);
 
         fragment.setArguments(args);
         return fragment;
+    }
+
+    private static List<String> getTitles(String excludeTitle) {
+        IPhenomenaDb phenomenaDb = new JsonPhenomenaDb();
+        ArrayList<String> titles = new ArrayList<>();
+        titles.add("No continuation");
+
+        for (Phenomenon phenomenon : phenomenaDb.getAll()) {
+            if (!phenomenon.title.equals(excludeTitle)) {
+                titles.add(phenomenon.title);
+            }
+        }
+
+        return titles;
+    }
+
+    private void updateContinuationSpinners(Context context, View rootView) {
+        List<String> titles = getTitles(phenomenon != null ? phenomenon.title : null);
+        String[] continuations = (phenomenon != null ? phenomenon.continuations : new String[] {"", "", ""});
+
+        int continuationIndex = 0;
+        for (int spinnerId : new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3}) {
+            Spinner spinner = rootView.findViewById(spinnerId);
+            String selectionText = continuations[continuationIndex];
+
+            ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item, titles);
+            adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+            spinner.setAdapter(adapter);
+
+            spinner.setSelection(titles.indexOf(selectionText));
+
+            continuationIndex++;
+        }
     }
 
     @Override
@@ -57,20 +88,10 @@ public class PhenomenonFragment extends Fragment {
                              Bundle savedInstanceState) {
         final View rootView = inflater.inflate(R.layout.fragment_main, container, false);
 
-        List<Phenomenon> phenomena = FileUtils.loadPhenomena();
-
         Bundle bundle = getArguments();
         if (bundle != null) {
-            phenomenonIndex = bundle.getInt(ARG_SECTION_NUMBER);
-
-            ArrayList<String> preTitles = bundle.getStringArrayList(ARG_TITLES);
-            if (preTitles != null) {
-                titles = new ArrayList<>(preTitles);
-                titles.add(0, "None");
-            }
+            phenomenon = bundle.getParcelable("phenomenon");
         }
-
-        int[] spinnerSelections = new int[3];
 
         Spinner phenomenonStarttime = rootView.findViewById(R.id.phenomenonStarttime);
         phenomenonStarttime.setSelection(0);
@@ -79,39 +100,24 @@ public class PhenomenonFragment extends Fragment {
         Spinner phenomenonHowmany = rootView.findViewById(R.id.phenomenonHowmany);
         phenomenonHowmany.setSelection(0);
 
-        if (phenomenonIndex >= 0 && phenomenonIndex < phenomena.size()) {
-            Phenomenon phenomenon = phenomena.get(phenomenonIndex);
-            myTitle = phenomenon.title;
-
+        if (phenomenon != null) {
             EditText phenomenonTitle = rootView.findViewById(R.id.phenomenonTitle);
             phenomenonTitle.setText(phenomenon.title);
 
-            if (titles != null) {
-                if (phenomenonIndex + 1 < titles.size()) {
-                    titles.remove(phenomenonIndex + 1);
-                }
-            }
-
             EditText phenomenonButton1 = rootView.findViewById(R.id.phenomenonButton1);
-            phenomenonButton1.setText(phenomenon.button1);
+            phenomenonButton1.setText(phenomenon.buttons[0]);
 
             EditText phenomenonButton2 = rootView.findViewById(R.id.phenomenonButton2);
-            phenomenonButton2.setText(phenomenon.button2);
+            phenomenonButton2.setText(phenomenon.buttons[1]);
 
             EditText phenomenonButton3 = rootView.findViewById(R.id.phenomenonButton3);
-            phenomenonButton3.setText(phenomenon.button3);
-
-            int i = 0;
-            for (String conn : new String[] {phenomenon.conn1, phenomenon.conn2, phenomenon.conn3}) {
-                spinnerSelections[i++] = Math.max(titles.indexOf(conn), 0);
-            }
+            phenomenonButton3.setText(phenomenon.buttons[2]);
 
             Button doNowBtn = rootView.findViewById(R.id.phenomenonDoNow);
             doNowBtn.setOnClickListener(v -> {
                 MainActivity mainActivity = (MainActivity) getContext();
                 if (mainActivity != null) {
-                    new PhenomenonNotificationManager(mainActivity).setNotification(phenomenonIndex, phenomenon,
-                            new GregorianCalendar().getTimeInMillis());
+                    NotificationService.showNotification(mainActivity, phenomenon);
                 }
             });
 
@@ -120,125 +126,90 @@ public class PhenomenonFragment extends Fragment {
             phenomenonHowmany.setSelection(phenomenon.howmany);
         }
 
-        int[] spinnerIds = new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3};
         Context context = getContext();
 
-        if (titles != null && context != null) {
-            int i= 0;
-
-            for (int spinnerId : spinnerIds) {
-                Spinner spinner = rootView.findViewById(spinnerId);
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item, titles);
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                spinner.setAdapter(adapter);
-                spinner.setSelection(spinnerSelections[i++]);
-            }
+        if (context != null) {
+            updateContinuationSpinners(context, rootView);
         }
 
         Button saveBtn  = rootView.findViewById(R.id.phenomenonSave);
         saveBtn.setOnClickListener(view -> {
             MainActivity mainActivity = (MainActivity) getContext();
-            PhenomenonNotificationManager phenomenonNotificationManager = null;
-            if (mainActivity != null) {
-                phenomenonNotificationManager = new PhenomenonNotificationManager(mainActivity);
-            }
-            ArrayList<Phenomenon> phenomena1 = FileUtils.loadPhenomena();
-            Phenomenon phenomenon;
-
-            if (phenomenonIndex < 0 || phenomenonIndex >= phenomena1.size()) {
-                phenomenon = new Phenomenon();
-                phenomena1.add(phenomenon);
-                phenomenonIndex = phenomena1.size() - 1;
-            } else {
-                phenomenon = phenomena1.get(phenomenonIndex);
-                if (phenomenonNotificationManager != null) {
-                    phenomenonNotificationManager.cancelNotification(phenomenonIndex, phenomenon);
-                }
-            }
 
             boolean isEmpty = true;
 
             EditText phenomenonTitle = rootView.findViewById(R.id.phenomenonTitle);
-            phenomenon.title = phenomenonTitle.getText().toString();
-            myTitle = phenomenon.title;
+            String newTitle = phenomenonTitle.getText().toString();
             //noinspection ConstantConditions
-            isEmpty &= phenomenon.title.isEmpty();
+            isEmpty &= newTitle.isEmpty();
 
-            EditText phenomenonButton1 = rootView.findViewById(R.id.phenomenonButton1);
-            phenomenon.button1 = phenomenonButton1.getText().toString();
-            isEmpty &= phenomenon.button1.isEmpty();
+            String[] newButtons = new String[] {"", "", ""};
+            int buttonIndex = 0;
 
-            EditText phenomenonButton2 = rootView.findViewById(R.id.phenomenonButton2);
-            phenomenon.button2= phenomenonButton2.getText().toString();
-            isEmpty &= phenomenon.button2.isEmpty();
+            for (int buttonId : new int[] {R.id.phenomenonButton1, R.id.phenomenonButton2, R.id.phenomenonButton3}) {
+                EditText phenomenonButton = rootView.findViewById(buttonId);
+                String newButton = phenomenonButton.getText().toString();
+                newButtons[buttonIndex] = newButton;
+                isEmpty &= newButton.isEmpty();
+                buttonIndex++;
+            }
 
-            EditText phenomenonButton3 = rootView.findViewById(R.id.phenomenonButton3);
-            phenomenon.button3 = phenomenonButton3.getText().toString();
-            isEmpty &= phenomenon.button3.isEmpty();
+            String[] newContinuations = new String[] {"No continuation", "No continuation", "No continuation"};
+            int continuationIndex = 0;
 
-            Spinner phenomenonConn1 = rootView.findViewById(R.id.phenomenonConn1);
-            phenomenon.conn1 = phenomenonConn1.getSelectedItem().toString();
-            isEmpty &= phenomenon.conn1.equals("None");
+            for (int continuationId : new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3}) {
+                Spinner phenomenonContinuation = rootView.findViewById(continuationId);
+                String continuation = phenomenonContinuation.getSelectedItem().toString();
+                newContinuations[continuationIndex] = continuation;
+                isEmpty &= continuation.equals("No continuation");
+                continuationIndex++;
+            }
 
-            Spinner phenomenonConn2 = rootView.findViewById(R.id.phenomenonConn2);
-            phenomenon.conn2 = phenomenonConn2.getSelectedItem().toString();
-            isEmpty &= phenomenon.conn2.equals("None");
+            int newStarttime = phenomenonStarttime.getSelectedItemPosition();
+            int newEndtime = phenomenonEndtime.getSelectedItemPosition();
+            int newHowmany = phenomenonHowmany.getSelectedItemPosition();
 
-            Spinner phenomenonConn3 = rootView.findViewById(R.id.phenomenonConn3);
-            phenomenon.conn3 = phenomenonConn3.getSelectedItem().toString();
-            isEmpty &= phenomenon.conn3.equals("None");
+            IPhenomenaDb phenomenaDb = new JsonPhenomenaDb();
+            IScheduleDb scheduleDb = new JsonScheduleDb();
 
-            phenomenon.starttime = phenomenonStarttime.getSelectedItemPosition();
-            phenomenon.endtime = phenomenonEndtime.getSelectedItemPosition();
-            phenomenon.howmany = phenomenonHowmany.getSelectedItemPosition();
+            if (phenomenon != null) {
+                phenomenaDb.remove(phenomenon);
+                scheduleDb.remove(phenomenon);
+            }
 
             if (isEmpty) {
-                phenomena1.remove(phenomenonIndex);
+                phenomenon = null;
             } else {
-                if (phenomenonNotificationManager != null) {
-                    phenomenonNotificationManager.setNotification(phenomenonIndex, phenomenon,
-                            new GregorianCalendar().getTimeInMillis());
-                }
+                phenomenon = new Phenomenon(newTitle, newButtons, newContinuations,
+                        newStarttime, newEndtime, newHowmany);
+
+                // Add to database.
+                phenomenaDb.add(phenomenon);
+
+                // Show it now.
+                NotificationService.showNotification(mainActivity, phenomenon);
+
+                // Schedule it and update next notification time.
+                IPhenomenonTimeDistribution timeDistribution = new PhenomenonTimePoissonDistribution();
+                scheduleDb.add(phenomenon, timeDistribution.nextTime(phenomenon, new Date()));
+                new PhenomenonNotificationManager(mainActivity).setNextNotification();
             }
 
-            try{
-                FileUtils.savePhenomena(phenomena1);
-                Toast.makeText(getActivity(), "Saved",
-                        Toast.LENGTH_LONG).show();
-                EventBus.getDefault().post(new MainActivity.InvalidateSectionsPagerAdapter());
-            } catch (IOException e) {
-                Toast.makeText(getActivity(), "Failed to save",
-                        Toast.LENGTH_LONG).show();
-                e.printStackTrace();
-            }
+            // Post event to update all fragments.
+            EventBus.getDefault().post(new MainActivity.InvalidateSectionsPagerAdapter());
         });
 
         return rootView;
     }
 
     @Subscribe
-    public void onSetFragmentTitlesEvent (MainActivity.SetFragmentTitlesEvent event) {
-        Log.d("Fragment", String.format("got event %d", phenomenonIndex));
+    public void onSetFragmentTitlesEvent(MainActivity.SetFragmentTitlesEvent event) {
+        Log.d("PhenomenologyProject", "onSetFragmentTitlesEvent called");
 
         View rootView = getView();
         Context context = getContext();
         if (rootView != null && context != null) {
-            titles = new ArrayList<>(event.titlesArr);
-            titles.add(0, "None");
-            titles.remove(myTitle);
-
-            for (int spinnerId : new int[] {R.id.phenomenonConn1, R.id.phenomenonConn2, R.id.phenomenonConn3}) {
-                Spinner spinner = rootView.findViewById(spinnerId);
-                String selectionText = spinner.getSelectedItem().toString();
-
-                ArrayAdapter<String> adapter = new ArrayAdapter<>(context, android.R.layout.simple_spinner_item, titles);
-                adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-                spinner.setAdapter(adapter);
-
-                spinner.setSelection(titles.indexOf(selectionText));
-            }
-
-            Log.d("Fragment", String.format("updated titles %d", phenomenonIndex));
+            updateContinuationSpinners(context, rootView);
         }
     }
 }

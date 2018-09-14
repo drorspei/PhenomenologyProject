@@ -1,34 +1,60 @@
 package com.wordpress.drorspei.phenomenologyproject.data;
 
-public class Phenomenon {
-    public final int id;
+import android.os.Parcel;
+import android.os.Parcelable;
+
+public class Phenomenon implements Parcelable {
     public final String title;
-    public final String button1;
-    public final String button2;
-    public final String button3;
-    public final String conn1;
-    public final String conn2;
-    public final String conn3;
+    public final String[] buttons;
+    public final String[] continuations;
     public final int starttime;
     public final int endtime;
     public final int howmany;
 
-    public Phenomenon(int id, String title,
-                      String button1, String button2, String button3,
-                      String conn1, String conn2, String conn3,
+    public Phenomenon(String title,
+                      String[] buttons,
+                      String[] continuations,
                       int starttime, int endtime, int howmany
     ) {
-        this.id = id;
         this.title = title;
-        this.button1 = button1;
-        this.button2 = button2;
-        this.button3 = button3;
-        this.conn1 = conn1;
-        this.conn2 = conn2;
-        this.conn3 = conn3;
+        this.buttons = buttons;
+        this.continuations = continuations;
         this.starttime = starttime;
         this.endtime = endtime;
         this.howmany = howmany;
     }
+
+    @Override
+    public int describeContents() {
+        return 0;
+    }
+
+    @Override
+    public void writeToParcel(Parcel dest, int flags) {
+        dest.writeString(title);
+        dest.writeStringArray(buttons);
+        dest.writeStringArray(continuations);
+        dest.writeInt(starttime);
+        dest.writeInt(endtime);
+        dest.writeInt(howmany);
+    }
+
+    public static final Parcelable.Creator<Phenomenon> CREATOR = new Parcelable.Creator<Phenomenon>() {
+        public Phenomenon createFromParcel(Parcel in) {
+            String title = in.readString();
+            String[] buttons = in.createStringArray();
+            String[] continuations = in.createStringArray();
+            int starttime = in.readInt();
+            int endtime = in.readInt();
+            int howmany = in.readInt();
+
+            return new Phenomenon(title, buttons, continuations, starttime, endtime, howmany);
+        }
+
+        public Phenomenon[] newArray(int size) {
+            return new Phenomenon[size];
+        }
+    };
+
 }
 

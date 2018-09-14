@@ -23,4 +23,12 @@ public interface IPhenomenaDb {
      * @return List of saved phenomena.
      */
     List<Phenomenon> getAll();
+
+    /**
+     * Get phenomenon with title, return null if doesn't exist.
+     *
+     * @param title What you're looking for.
+     * @return Instance with that title.
+     */
+    Phenomenon getByTitle(String title);
 }

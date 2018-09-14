@@ -36,7 +36,7 @@ public class JsonScheduleDb implements IScheduleDb {
 
     private void saveScheduleItems() {
         try (Writer writer = new FileWriter(getScheduleItemsDbPath())) {
-            Gson gson = new GsonBuilder().create();
+            Gson gson = new GsonBuilder().setPrettyPrinting().create();
             gson.toJson(scheduleItems, writer);
         } catch (IOException e) {
             Log.e("PhenomenologyProject", "JsonScheduleDb.saveScheduleItems failed to write to file.");
@@ -54,17 +54,19 @@ public class JsonScheduleDb implements IScheduleDb {
 
     @Override
     public void add(Phenomenon phenomenon, Date date) {
-        int index = 0;
-        for (ScheduleItem scheduleItem : scheduleItems) {
-            if (scheduleItem.date.before(date)) {
-                index++;
-            } else {
-                break;
+        if (phenomenon != null && date != null) {
+            int index = 0;
+            for (ScheduleItem scheduleItem : scheduleItems) {
+                if (scheduleItem.date.before(date)) {
+                    index++;
+                } else {
+                    break;
+                }
             }
-        }
 
-        scheduleItems.add(index, new ScheduleItem(phenomenon, date));
-        saveScheduleItems();
+            scheduleItems.add(index, new ScheduleItem(phenomenon, date));
+            saveScheduleItems();
+        }
     }
 
     @Override
@@ -81,6 +83,14 @@ public class JsonScheduleDb implements IScheduleDb {
         }
 
         if (removedItem) {
+            saveScheduleItems();
+        }
+    }
+
+    @Override
+    public void clear() {
+        if (scheduleItems.size() > 0) {
+            scheduleItems.clear();
             saveScheduleItems();
         }
     }
