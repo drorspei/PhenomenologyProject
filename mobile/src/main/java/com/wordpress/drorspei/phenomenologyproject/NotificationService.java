@@ -28,7 +28,7 @@ public class NotificationService extends IntentService {
     static void showNotification(Context context, Phenomenon phenomenon) {
         Log.d("NotificationService", "Showing notification");
         int ind = runningNotificationIndex++;
-        final String NOTIFICATION_CHANNEL_ID = "phenomenon_notifications";
+        final String NOTIFICATION_CHANNEL_ID = "phenomenon_notifications_4";
 
         NotificationManager notificationManager = (NotificationManager)context.getSystemService(NOTIFICATION_SERVICE);
 
@@ -37,14 +37,16 @@ public class NotificationService extends IntentService {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 NotificationChannel notificationChannel = new NotificationChannel(NOTIFICATION_CHANNEL_ID,
                         "My Notifications",
-                        NotificationManager.IMPORTANCE_DEFAULT);
+                        NotificationManager.IMPORTANCE_HIGH);
 
                 // Configure the notification channel.
                 notificationChannel.setDescription("Channel description");
                 notificationChannel.enableLights(true);
-                notificationChannel.setLightColor(Color.RED);
-                notificationChannel.setVibrationPattern(new long[]{1000, 1000});
+                notificationChannel.setLightColor(Color.BLUE);
+                notificationChannel.setVibrationPattern(new long[]{0, 1000, 200, 1000});
                 notificationChannel.enableVibration(true);
+                notificationChannel.setShowBadge(true);
+                notificationChannel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
                 notificationManager.createNotificationChannel(notificationChannel);
             }
 
@@ -53,8 +55,10 @@ public class NotificationService extends IntentService {
                     .setSmallIcon(android.R.drawable.ic_dialog_info)
                     .setContentTitle("Phenomenon Notification")
                     .setContentText(phenomenon.title)
+                    .setLights(Color.BLUE, 500, 500)
+                    .setVibrate(new long[] {0, 1000, 200, 1000})
                     .setAutoCancel(true)
-                    .setDefaults(Notification.DEFAULT_ALL);
+                    .setPriority(Notification.PRIORITY_HIGH);
 
             // Add the buttons.
             int buttonIndex = 0;
@@ -78,7 +82,6 @@ public class NotificationService extends IntentService {
             }
 
             Notification notification = builder.build();
-            notification.flags |= Notification.FLAG_AUTO_CANCEL;
 
             // Finally show the notification.
             notificationManager.notify(ind, notification);

@@ -11,7 +11,7 @@ public class PhenomenonTimePoissonDistribution implements IPhenomenonTimeDistrib
     public Date nextTime(Phenomenon phenomenon, Date fromWhen) {
         if (phenomenon.endtime > phenomenon.starttime && phenomenon.howmany > 0) {
             double lambda = phenomenon.howmany / (double)(phenomenon.endtime - phenomenon.starttime);
-            double totalHours = -Math.log(new Random().nextDouble()) / lambda;
+            double totalHours = Math.max(0.1, -Math.log(new Random().nextDouble()) / lambda);
             int days = (int)(totalHours / (phenomenon.endtime - phenomenon.starttime));
             double hoursIn = (totalHours - days * (phenomenon.endtime - phenomenon.starttime));
 
