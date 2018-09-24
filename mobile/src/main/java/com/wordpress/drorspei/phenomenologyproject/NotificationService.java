@@ -23,10 +23,10 @@ public class NotificationService extends IntentService {
     }
 
     private static int runningNotificationIndex = 0;
-    private static int runningRequestCode = 1 << 16;
+    private static int runningRequestCode = 1 << 15;
 
     static void showNotification(Context context, Phenomenon phenomenon) {
-        Log.d("NotificationService", "Showing notification");
+        Log.d("PhenomenologyProject", String.format("NotificationService Showing notification, next runningRequestCode: %d", runningRequestCode));
         int ind = runningNotificationIndex++;
         final String NOTIFICATION_CHANNEL_ID = "phenomenon_notifications_4";
 
@@ -71,7 +71,7 @@ public class NotificationService extends IntentService {
                     intent.putExtra("notificationIndex", ind);
 
                     PendingIntent pendingIntent = PendingIntent.getService(context, runningRequestCode++,
-                            intent, PendingIntent.FLAG_ONE_SHOT);
+                            intent, PendingIntent.FLAG_UPDATE_CURRENT);
                     NotificationCompat.Action action = new NotificationCompat.Action
                             .Builder(android.R.drawable.ic_menu_add, button, pendingIntent).build();
 
@@ -108,13 +108,13 @@ public class NotificationService extends IntentService {
 
     @Override
     final protected void onHandleIntent(Intent intent) {
-        Log.d("NotificationService", "Got intent");
+        Log.d("PhenomenologyProject", "NotificationService Got intent");
 
         String action = intent.getAction();
 
         if (action != null) {
             if(intent.getAction().equals("showNotification")) {
-                Log.d("NotificationService", "Got showNotification intent");
+                Log.d("PhenomenologyProject", "NotificationService Got showNotification intent");
 
                 IScheduleDb scheduleDb = new JsonScheduleDb();
                 ScheduleItem scheduleItem = scheduleDb.getNext();
@@ -148,7 +148,7 @@ public class NotificationService extends IntentService {
                     new PhenomenonNotificationManager(this).setNextNotification();
                 }
             } else if(action.equals("saveAndContinuePhenomenon")) {
-                Log.d("NotificationService", "Got saveAndContinuePhenomenon intent");
+                Log.d("PhenomenologyProject", "NotificationService Got saveAndContinuePhenomenon intent");
 
                 Bundle bundle = intent.getExtras();
                 if (bundle != null) {

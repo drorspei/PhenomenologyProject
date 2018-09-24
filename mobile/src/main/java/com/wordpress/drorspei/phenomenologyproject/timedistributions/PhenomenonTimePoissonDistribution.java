@@ -17,6 +17,8 @@ public class PhenomenonTimePoissonDistribution implements IPhenomenonTimeDistrib
 
             Calendar cal = Calendar.getInstance();
             cal.setTime(fromWhen);
+//            cal.add(Calendar.MINUTE, new Random().nextInt(10) + 1);
+//            return cal.getTime();
 
             cal.add(Calendar.DAY_OF_MONTH,  days);
             if (cal.get(Calendar.HOUR_OF_DAY) < phenomenon.starttime) {

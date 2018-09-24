@@ -50,13 +50,13 @@ public class MainActivity extends AppCompatActivity {
         if (checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {Manifest.permission.WRITE_EXTERNAL_STORAGE}, 0);
         } else {
-            Log.d("MainActivity", "WRITE_EXTERNAL_STORAGE ok");
+            Log.d("PhenomenologyProject", "MainActivity WRITE_EXTERNAL_STORAGE ok");
         }
 
         if (checkSelfPermission(Manifest.permission.RECEIVE_BOOT_COMPLETED) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[] {Manifest.permission.RECEIVE_BOOT_COMPLETED}, 1);
         } else {
-            Log.d("MainActivity", "RECEIVE_BOOT_COMPLETED ok");
+            Log.d("PhenomenologyProject", "MainActivity RECEIVE_BOOT_COMPLETED ok");
         }
 
         new PhenomenonNotificationManager(this).setRandomTimeAll();
@@ -130,7 +130,7 @@ public class MainActivity extends AppCompatActivity {
 
     @Subscribe
     public void onInvalidateSectionsPagerAdapter(InvalidateSectionsPagerAdapter event) {
-        Log.d("MainActivity", "onInvalidateSectionsPagerAdapter called");
+        Log.d("PhenomenologyProject", "MainActivity onInvalidateSectionsPagerAdapter called");
 
         EventBus.getDefault().post(new SetFragmentTitlesEvent());
         mSectionsPagerAdapter.notifyDataSetChanged();
