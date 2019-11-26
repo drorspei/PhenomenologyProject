@@ -4,6 +4,13 @@ import android.os.Environment;
 import android.util.Log;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializationContext;
+import com.google.gson.JsonDeserializer;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonParseException;
+import com.google.gson.JsonPrimitive;
+import com.google.gson.JsonSerializationContext;
+import com.google.gson.JsonSerializer;
 import com.google.gson.reflect.TypeToken;
 import com.google.gson.stream.JsonReader;
 import com.wordpress.drorspei.phenomenologyproject.data.IScheduleDb;
@@ -23,8 +30,31 @@ public class JsonScheduleDb implements IScheduleDb {
     private static String getScheduleItemsDbPath() {
         return Environment.getExternalStorageDirectory().getPath() + "/Documents/scheduledphenomena.json";
     }
+
+    private Gson makeGson() {
+        JsonSerializer<Date> ser = new JsonSerializer<Date>() {
+            @Override
+            public JsonElement serialize(Date src, Type typeOfSrc, JsonSerializationContext
+                    context) {
+                return src == null ? null : new JsonPrimitive(src.getTime());
+            }
+        };
+
+        JsonDeserializer<Date> deser = new JsonDeserializer<Date>() {
+            @Override
+            public Date deserialize(JsonElement json, Type typeOfT,
+                                    JsonDeserializationContext context) throws JsonParseException {
+                return json == null ? null : new Date(json.getAsLong());
+            }
+        };
+
+        return new GsonBuilder()
+                .registerTypeAdapter(Date.class, ser)
+                .registerTypeAdapter(Date.class, deser).create();
+    }
+
     public JsonScheduleDb() {
-        Gson gson = new Gson();
+        Gson gson = makeGson();
 
         try {
             JsonReader reader = new JsonReader(new FileReader(getScheduleItemsDbPath()));
@@ -36,7 +66,7 @@ public class JsonScheduleDb implements IScheduleDb {
 
     private void saveScheduleItems() {
         try (Writer writer = new FileWriter(getScheduleItemsDbPath())) {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            Gson gson = makeGson();
             gson.toJson(scheduleItems, writer);
         } catch (IOException e) {
             Log.e("PhenomenologyProject", "JsonScheduleDb.saveScheduleItems failed to write to file.");
