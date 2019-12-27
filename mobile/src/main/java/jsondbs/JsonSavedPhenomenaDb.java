@@ -13,6 +13,8 @@ import java.io.*;
 import java.lang.reflect.Type;
 import java.util.ArrayList;
 
+import static jsondbs.GsonMaker.makeGson;
+
 public class JsonSavedPhenomenaDb implements ISavedPhenomenaDb {
     private static final Type SAVED_PHENOMENON_TYPE = new TypeToken<ArrayList<SavedPhenomenon>>() {}.getType();
     private ArrayList<SavedPhenomenon> savedPhenomena;
@@ -22,7 +24,7 @@ public class JsonSavedPhenomenaDb implements ISavedPhenomenaDb {
     }
 
     public JsonSavedPhenomenaDb() {
-        Gson gson = new Gson();
+        Gson gson = makeGson();
 
         try {
             JsonReader reader = new JsonReader(new FileReader(getSavedPhenomenaDbPath()));
@@ -34,7 +36,7 @@ public class JsonSavedPhenomenaDb implements ISavedPhenomenaDb {
 
     private void saveSavedPhenomena() {
         try (Writer writer = new FileWriter(getSavedPhenomenaDbPath())) {
-            Gson gson = new GsonBuilder().setPrettyPrinting().create();
+            Gson gson = makeGson();
             gson.toJson(savedPhenomena, writer);
         } catch (IOException e) {
             Log.e("PhenomenologyProject", "JsonSavedPhenomenaDb.saveSavedPhenomena failed to write to file.");
